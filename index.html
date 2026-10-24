@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RésuméCraft</title>
+<!-- Group project: each part lives in its own folder (see README.md) -->
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&family=JetBrains+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Bebas+Neue&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<link rel="stylesheet" href="part1-core-ui/style.css">
+<link rel="stylesheet" href="part2-templates/style.css">
+<link rel="stylesheet" href="part3-accounts-admin/style.css">
+<link rel="stylesheet" href="part4-ai-features/style.css">
+</head>
+<body class="auth-locked">
+
+<!-- ▸ PART 1 · Core UI, Theme & Resume Form — Theme background -->
+<div class="liquid-bg" aria-hidden="true">
+  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div><div class="orb o4"></div>
+</div>
+
+<!-- ▸ PART 3 · Login, Profiles & Admin Panel — Login screen -->
+<!-- ====== LOGIN ====== -->
+<div class="login-screen" id="login-screen">
+  <form class="login-card" id="login-card" onsubmit="event.preventDefault(); doLogin();" autocomplete="on">
+    <div class="logo">Résumé<span>Craft</span></div>
+    <p class="login-sub">Sign in to open your resume profile</p>
+    <div class="field">
+      <label for="login-user">Username</label>
+      <input type="text" id="login-user" placeholder="Your username" autocomplete="username" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="login-pass">Password</label>
+      <div class="pw-wrap">
+        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+        <button type="button" class="pw-toggle" onclick="togglePw('login-pass', this)">SHOW</button>
+      </div>
+    </div>
+    <button type="submit" class="btn-primary">Sign in</button>
+    <div class="form-msg" id="login-msg"></div>
+  </form>
+</div>
+
+<!-- ▸ PART 1 · Core UI, Theme & Resume Form — Header & step navigation (user menu buttons call Part 3) -->
+<header class="app-header">
+  <div class="logo">Résumé<span>Craft</span></div>
+  <div class="header-steps">
+    <div class="step-pill active" id="pill-1" onclick="goToStep(1)">1 · Template</div>
+    <div class="step-pill" id="pill-2" onclick="goToStep(2)">2 · Details</div>
+    <div class="step-pill" id="pill-3" onclick="goToStep(3)">3 · Download</div>
+    <div class="step-pill" id="pill-4" onclick="goToStep(4)">4 · Jobs</div>
+  </div>
+  <div class="user-area">
+    <span class="save-status" id="save-status">✓ Saved</span>
+    <div class="user-chip" onclick="openAccount()" title="Your account · change password" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openAccount()">
+      <span class="avatar" id="user-avatar">?</span>
+      <span class="u-label" id="user-name"></span>
+      <span class="role-badge" id="user-role"></span>
+    </div>
+    <button class="hdr-btn accent" id="admin-btn" onclick="openAdmin()" style="display:none">Admin</button>
+    <button class="hdr-btn" onclick="logout()">Log out</button>
+  </div>
+</header>
+
+<!-- ▸ PART 3 · Login, Profiles & Admin Panel — Admin “editing someone’s resume” banner -->
+<div class="edit-banner" id="edit-banner">
+  <span>✏️ You’re editing <b id="edit-banner-name"></b>’s resume as admin. Changes save to their profile.</span>
+  <button class="mini-btn" onclick="backToMine()">Back to my resume</button>
+</div>
+
+<!-- ▸ PART 3 · Login, Profiles & Admin Panel — Admin resume viewer -->
+<!-- ====== VIEW ANY RESUME (admin) ====== -->
+<div class="modal-backdrop" id="view-modal" onclick="if(event.target===this) closeModal('view-modal')">
+  <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="view-title">
+    <div class="modal-head">
+      <div><h3 id="view-title">Resume</h3><p id="view-sub"></p></div>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <button class="mini-btn" onclick="downloadViewed(this)">⬇ PDF</button>
+        <button class="mini-btn" onclick="adminEditProfile(viewingKey)">Edit</button>
+        <button class="close-x" onclick="closeModal('view-modal')" aria-label="Close">✕</button>
+      </div>
+    </div>
+    <div class="view-scroll"><div id="view-output" class="resume-paper"></div></div>
+  </div>
+</div>
+
+<!-- ▸ PART 4 · AI Assistant, Jobs & Resume Upload — Upload old resume -->
+<!-- ====== UPLOAD OLD RESUME ====== -->
+<div class="modal-backdrop" id="upload-modal" onclick="if(event.target===this) closeModal('upload-modal')">
+  <div class="modal-card mid" role="dialog" aria-modal="true" aria-labelledby="upload-title">
+    <div class="modal-head">
+      <div><h3 id="upload-title">Upload your old resume</h3><p>We’ll read it, suggest improvements, and fill in the form for you.</p></div>
+      <button class="close-x" onclick="closeModal('upload-modal')" aria-label="Close">✕</button>
+    </div>
+    <div id="up-pick">
+      <label class="dropzone" ondragover="event.preventDefault(); this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="onUploadDrop(event)">
+        <input type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/png,image/jpeg,image/webp" hidden onchange="handleResumeFile(this.files[0]); this.value=''">
+        <div class="dz-ico">📄</div>
+        <b>Drop your resume here or click to choose</b>
+        <span>PDF (including scanned or Canva PDFs), Word (.docx), photo (PNG/JPG) or .txt · up to 10 MB</span>
+      </label>
+      <div class="form-msg err" id="upload-err" style="text-align:left"></div>
+    </div>
+    <div id="up-busy" class="up-busy" style="display:none"><span class="spin"></span><span id="up-busy-text">Working…</span></div>
+    <div id="up-result" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ▸ PART 3 · Login, Profiles & Admin Panel — Account / change password -->
+<!-- ====== ACCOUNT ====== -->
+<div class="modal-backdrop" id="account-modal" onclick="if(event.target===this) closeModal('account-modal')">
+  <form class="modal-card narrow" role="dialog" aria-modal="true" aria-labelledby="acc-title" onsubmit="event.preventDefault(); changeOwnPassword();">
+    <div class="modal-head">
+      <div><h3 id="acc-title">Your account</h3><p id="acc-user"></p></div>
+      <button type="button" class="close-x" onclick="closeModal('account-modal')" aria-label="Close">✕</button>
+    </div>
+    <div class="field" style="margin-bottom:.8rem"><label for="acc-current">Current password</label><input type="password" id="acc-current" autocomplete="current-password"></div>
+    <div class="field" style="margin-bottom:.8rem"><label for="acc-new">New password</label><input type="password" id="acc-new" autocomplete="new-password" placeholder="Min. 6 characters"></div>
+    <div class="field" style="margin-bottom:.8rem"><label for="acc-confirm">Confirm new password</label><input type="password" id="acc-confirm" autocomplete="new-password"></div>
+    <button type="submit" class="btn-primary" style="width:100%">Change password</button>
+    <div class="form-msg" id="acc-msg"></div>
+  </form>
+</div>
+
+<!-- ▸ PART 3 · Login, Profiles & Admin Panel — Admin panel (AI settings tab inside is Part 4) -->
+<!-- ====== ADMIN: MANAGE PROFILES ====== -->
+<div class="modal-backdrop" id="admin-modal" onclick="if(event.target===this) closeAdmin()">
+  <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="admin-title">
+    <div class="modal-head">
+      <div>
+        <h3 id="admin-title">Admin</h3>
+        <p>Manage logins and the AI connection used by every profile.</p>
+      </div>
+      <button class="close-x" onclick="closeAdmin()" aria-label="Close">✕</button>
+    </div>
+
+    <div class="modal-tabs">
+      <button class="modal-tab active" data-tab="resumes" onclick="showAdminTab('resumes')">Resumes</button>
+      <button class="modal-tab" data-tab="profiles" onclick="showAdminTab('profiles')">Profiles</button>
+      <button class="modal-tab" data-tab="ai" onclick="showAdminTab('ai')">✨ AI settings</button>
+      <button class="modal-tab" data-tab="backup" onclick="showAdminTab('backup')">Backup</button>
+    </div>
+
+    <div class="admin-pane active" id="pane-resumes">
+      <div class="panel" style="margin-bottom:0">
+        <div class="res-toolbar">
+          <input type="search" id="res-search" placeholder="Search by name, role, skill…" oninput="renderResumeGallery()">
+          <span class="ai-hint" id="res-count"></span>
+        </div>
+        <div class="res-grid" id="res-grid"></div>
+      </div>
+    </div>
+
+    <div class="admin-pane" id="pane-profiles">
+    <div class="panel">
+      <div class="panel-title">Create a new profile</div>
+      <form onsubmit="event.preventDefault(); createUser();">
+        <div class="create-grid">
+          <div class="field"><label for="new-user">Username</label><input type="text" id="new-user" placeholder="e.g. Rahul" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+          <div class="field"><label for="new-pass">Password</label>
+            <div class="pw-wrap"><input type="password" id="new-pass" placeholder="Min. 6 characters" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePw('new-pass', this)">SHOW</button></div>
+          </div>
+          <button type="submit" class="btn-primary">Create</button>
+        </div>
+        <label class="check-row"><input type="checkbox" id="new-admin"> Make this person an admin (can create and manage profiles)</label>
+        <div class="form-msg" id="create-msg" style="text-align:left"></div>
+      </form>
+    </div>
+
+    <div class="panel" style="margin-bottom:0">
+      <div class="panel-title" id="user-count">All profiles</div>
+      <div class="user-list" id="user-list"></div>
+    </div>
+    </div>
+
+    <div class="admin-pane" id="pane-ai">
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title">AI connection</div>
+        <form onsubmit="event.preventDefault(); saveAISettings();">
+          <div class="ai-grid">
+            <div class="field"><label for="ai-provider">Provider</label>
+              <select id="ai-provider" onchange="onProviderChange()">
+                <option value="anthropic">Claude (Anthropic)</option>
+                <option value="openai">OpenAI</option>
+                <option value="gemini">Google Gemini</option>
+              </select>
+            </div>
+            <div class="field"><label for="ai-model">Model</label><input type="text" id="ai-model" autocomplete="off" spellcheck="false"></div>
+            <div class="field full"><label for="ai-key">API key</label>
+              <div class="pw-wrap"><input type="password" id="ai-key" autocomplete="off" spellcheck="false"><button type="button" class="pw-toggle" onclick="togglePw('ai-key', this)">SHOW</button></div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn-primary">Save key</button>
+            <button type="button" class="btn-secondary" onclick="testAISettings(this)">Test connection</button>
+            <button type="button" class="mini-btn danger" onclick="removeAIKey()">Remove key</button>
+            <a id="ai-key-link" class="ai-hint" href="#" target="_blank" rel="noopener noreferrer" style="margin-left:auto"></a>
+          </div>
+          <div class="form-msg" id="ai-msg"></div>
+          <p class="note">The key is saved in this browser only and is shared by every profile that signs in here. It is sent directly to the provider you choose, and usage is billed to that key. Anyone with access to this browser could read it, so use a key with a spending limit.</p>
+        </form>
+      </div>
+    </div>
+
+    <div class="admin-pane" id="pane-backup">
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-title">Backup &amp; restore</div>
+        <p style="font-size:.88rem;color:var(--mid);line-height:1.55">All profiles and resumes live in this browser. Download a backup regularly, and use it to move everything to another computer or browser.</p>
+        <div class="btn-row">
+          <button class="btn-primary" onclick="downloadBackup()">⬇ Download backup</button>
+          <label class="btn-secondary" style="cursor:pointer">⬆ Restore from backup<input type="file" accept=".json,application/json" hidden onchange="restoreBackup(this)"></label>
+        </div>
+        <div class="form-msg" id="backup-msg"></div>
+        <p class="note">Restoring adds missing profiles and overwrites ones with the same username; nothing else is deleted. Passwords stay scrambled in the file, and the AI key is not included — add it again in AI settings.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ▸ PART 2 · Resume Templates & PDF Export — Step 1 · Template picker -->
+<!-- ====== STEP 1: PICK TEMPLATE ====== -->
+<div class="step active" id="step-1">
+  <div class="template-page">
+    <div class="page-heading">
+      <h2>Choose Your Template</h2>
+      <p>Pick a design that matches your style and industry</p>
+    </div>
+    <div class="upload-banner glass">
+      <div class="ub-ico">📄</div>
+      <div class="ub-text"><b>Already have a resume?</b><span>Upload it (PDF, Word, photo or text) — we’ll review it, suggest changes and fill in the form for you.</span></div>
+      <button class="ai-btn solid" onclick="openUpload()">⬆ Upload old resume</button>
+    </div>
+    <div class="tpl-filters" id="tpl-filters"></div>
+    <div class="templates-grid" id="templates-grid"></div>
+    <button class="next-btn" onclick="goToStep(2)">Continue with this template →</button>
+  </div>
+</div>
+
+<!-- ▸ PART 1 · Core UI, Theme & Resume Form — Step 2 · Resume form -->
+<!-- ====== STEP 2: FILL DETAILS ====== -->
+<div class="step" id="step-2">
+  <div class="form-page">
+    <aside class="form-sidebar">
+      <div class="form-sidebar-inner">
+        <div style="font-size:0.75rem;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.75rem;">Sections</div>
+        <div class="section-tabs">
+          <button class="section-tab active" onclick="showFormSection('basics', this)"><span class="tab-icon">👤</span> Personal Info</button>
+          <button class="section-tab" onclick="showFormSection('summary', this)"><span class="tab-icon">✍️</span> Summary</button>
+          <button class="section-tab" onclick="showFormSection('experience', this)"><span class="tab-icon">💼</span> Experience</button>
+          <button class="section-tab" onclick="showFormSection('education', this)"><span class="tab-icon">🎓</span> Education</button>
+          <button class="section-tab" onclick="showFormSection('skills', this)"><span class="tab-icon">⚡</span> Skills</button>
+          <button class="section-tab" onclick="showFormSection('projects', this)"><span class="tab-icon">🚀</span> Projects</button>
+        </div>
+        <div class="ai-status" data-ai-status></div>
+        <div class="strength" id="strength">
+          <div class="strength-top"><span>Resume strength</span><b id="strength-val">0%</b></div>
+          <div class="strength-bar"><div id="strength-fill"></div></div>
+          <div class="strength-next" id="strength-next"></div>
+        </div>
+        <button class="btn-secondary side-btn" onclick="openUpload()">⬆ Upload old resume</button>
+      </div>
+    </aside>
+
+    <div class="form-area">
+
+      <!-- BASICS -->
+      <div class="form-section active" id="fs-basics">
+        <h3>Personal Information</h3>
+        <p class="section-sub">Your contact details and headline</p>
+        <div class="form-row">
+          <div class="field"><label>First Name</label><input type="text" id="f-fname" placeholder="Jane" oninput="liveUpdate()"></div>
+          <div class="field"><label>Last Name</label><input type="text" id="f-lname" placeholder="Smith" oninput="liveUpdate()"></div>
+        </div>
+        <div class="form-row full">
+          <div class="field"><label>Job Title / Role</label><input type="text" id="f-role" placeholder="Senior Software Engineer" oninput="liveUpdate()"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Email</label><input type="email" id="f-email" placeholder="jane@example.com" oninput="liveUpdate()"></div>
+          <div class="field"><label>Phone</label><input type="text" id="f-phone" placeholder="+91 98765 43210" oninput="liveUpdate()"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Location</label><input type="text" id="f-location" placeholder="Mumbai, India" oninput="liveUpdate()"></div>
+          <div class="field"><label>LinkedIn / Website</label><input type="text" id="f-linkedin" placeholder="linkedin.com/in/janesmith" oninput="liveUpdate()"></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" onclick="showFormSection('summary', document.querySelector('.section-tab:nth-child(2)'))">Next: Summary →</button>
+        </div>
+      </div>
+
+      <!-- SUMMARY -->
+      <div class="form-section" id="fs-summary">
+        <h3>Professional Summary</h3>
+        <p class="section-sub">2–4 sentences that sell your value</p>
+        <div class="form-row full">
+          <div class="field">
+            <label>Summary</label>
+            <textarea id="f-summary" rows="5" placeholder="Passionate software engineer with 5+ years building scalable web applications. Proven track record of delivering high-impact features that improve user experience and business outcomes." oninput="liveUpdate()"></textarea>
+          </div>
+        </div>
+        <div class="ai-row">
+          <button class="ai-btn" onclick="aiSummary(this)">✨ Write / improve with AI</button>
+          <span class="ai-hint">Uses your experience, skills and target role</span>
+        </div>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="showFormSection('basics', document.querySelector('.section-tab:nth-child(1)'))">← Back</button>
+          <button class="btn-primary" onclick="showFormSection('experience', document.querySelector('.section-tab:nth-child(3)'))">Next: Experience →</button>
+        </div>
+      </div>
+
+      <!-- EXPERIENCE -->
+      <div class="form-section" id="fs-experience">
+        <h3>Work Experience</h3>
+        <p class="section-sub">Add your jobs, most recent first</p>
+        <div id="exp-entries"></div>
+        <button class="add-btn" onclick="addExperience()">+ Add Work Experience</button>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="showFormSection('summary', document.querySelector('.section-tab:nth-child(2)'))">← Back</button>
+          <button class="btn-primary" onclick="showFormSection('education', document.querySelector('.section-tab:nth-child(4)'))">Next: Education →</button>
+        </div>
+      </div>
+
+      <!-- EDUCATION -->
+      <div class="form-section" id="fs-education">
+        <h3>Education</h3>
+        <p class="section-sub">Degrees, certifications, and courses</p>
+        <div id="edu-entries"></div>
+        <button class="add-btn" onclick="addEducation()">+ Add Education</button>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="showFormSection('experience', document.querySelector('.section-tab:nth-child(3)'))">← Back</button>
+          <button class="btn-primary" onclick="showFormSection('skills', document.querySelector('.section-tab:nth-child(5)'))">Next: Skills →</button>
+        </div>
+      </div>
+
+      <!-- SKILLS -->
+      <div class="form-section" id="fs-skills">
+        <h3>Skills</h3>
+        <p class="section-sub">Add your key technical and soft skills</p>
+        <div class="skills-container" id="skills-container"></div>
+        <div class="skill-input-row">
+          <input type="text" id="skill-input" placeholder="e.g. React, Python, Project Management…" onkeydown="if(event.key==='Enter'){addSkill();}">
+          <button onclick="addSkill()">Add Skill</button>
+        </div>
+        <div class="ai-row"><button class="ai-btn" onclick="aiSuggestSkills(this)">✨ Suggest skills with AI</button><span class="ai-hint">Click a suggestion to add it</span></div>
+        <div class="suggest-chips" id="skill-suggestions"></div>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="showFormSection('education', document.querySelector('.section-tab:nth-child(4)'))">← Back</button>
+          <button class="btn-primary" onclick="showFormSection('projects', document.querySelector('.section-tab:nth-child(6)'))">Next: Projects →</button>
+        </div>
+      </div>
+
+      <!-- PROJECTS -->
+      <div class="form-section" id="fs-projects">
+        <h3>Projects</h3>
+        <p class="section-sub">Highlight your notable work (optional)</p>
+        <div id="proj-entries"></div>
+        <button class="add-btn" onclick="addProject()">+ Add Project</button>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="showFormSection('skills', document.querySelector('.section-tab:nth-child(5)'))">← Back</button>
+          <button class="btn-primary" onclick="goToStep(3)">Preview & Download →</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ▸ PART 2 · Resume Templates & PDF Export — Step 3 · Preview & PDF (AI review box is Part 4) -->
+<!-- ====== STEP 3: PREVIEW & DOWNLOAD ====== -->
+<div class="step" id="step-3">
+  <div class="preview-page">
+    <div class="preview-controls">
+      <h3>Preview & Export</h3>
+
+      <button class="download-btn" id="dl-btn" onclick="downloadPDF()">
+        ⬇ Download PDF
+      </button>
+      <button class="btn-secondary edit-btn" onclick="goToStep(2)">← Edit Resume</button>
+
+      <div class="ctrl-label">Accent Color</div>
+      <div class="color-swatches">
+        <div class="swatch active" style="background:#1e3a5f" data-color="blue" onclick="setColorTheme('blue',this)"></div>
+        <div class="swatch" style="background:#c8502a" data-color="orange" onclick="setColorTheme('orange',this)"></div>
+        <div class="swatch" style="background:#1a4a2e" data-color="green" onclick="setColorTheme('green',this)"></div>
+        <div class="swatch" style="background:#5a1a6e" data-color="purple" onclick="setColorTheme('purple',this)"></div>
+        <div class="swatch" style="background:#2a2a2a" data-color="dark" onclick="setColorTheme('dark',this)"></div>
+        <div class="swatch" style="background:#8a1a2e" data-color="crimson" onclick="setColorTheme('crimson',this)"></div>
+      </div>
+
+      <div class="ctrl-label" style="margin-top:1.5rem;">Switch Template</div>
+      <div class="font-options" id="tpl-switcher"></div>
+
+      <div class="ctrl-label" style="margin-top:1.5rem;">AI Resume Review</div>
+      <button class="ai-btn big" onclick="aiReview(this)">✨ Review my resume</button>
+      <div class="review-box" id="review-box"></div>
+
+      <div class="ctrl-label" style="margin-top:1.5rem;">Next</div>
+      <button class="btn-primary" style="width:100%" onclick="goToStep(4)">Find matching jobs →</button>
+    </div>
+
+    <div class="preview-area">
+      <div id="resume-output"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ▸ PART 4 · AI Assistant, Jobs & Resume Upload — Step 4 · Jobs & tailoring -->
+<!-- ====== STEP 4: JOB SUGGESTIONS ====== -->
+<div class="step" id="step-4">
+  <div class="preview-page">
+    <div class="preview-controls jobs-controls">
+      <h3>Job Matches</h3>
+      <p class="lead">Roles suggested from this profile’s resume, with links to live openings.</p>
+      <div class="field"><label for="job-location">Preferred location</label><input type="text" id="job-location" oninput="readJobPrefs(); scheduleSave()"></div>
+      <div class="field"><label for="job-level">Experience level</label>
+        <select id="job-level" onchange="readJobPrefs(); scheduleSave()">
+          <option value="auto">Detect from my resume</option>
+          <option value="internship">Internship</option>
+          <option value="entry level / fresher">Entry level / Fresher</option>
+          <option value="mid level">Mid level</option>
+          <option value="senior">Senior</option>
+          <option value="lead / manager">Lead / Manager</option>
+        </select>
+      </div>
+      <div class="field"><label for="job-mode">Work mode</label>
+        <select id="job-mode" onchange="readJobPrefs(); scheduleSave()">
+          <option value="any">Any</option>
+          <option value="remote">Remote</option>
+          <option value="hybrid">Hybrid</option>
+          <option value="on-site">On-site</option>
+        </select>
+      </div>
+      <button class="ai-btn big solid" onclick="aiFindJobs(this)">✨ Find matching jobs</button>
+      <button class="btn-secondary" style="width:100%;margin-top:0.6rem" onclick="quickJobs()">Quick search (no AI)</button>
+      <div class="ai-status" data-ai-status style="margin-top:1rem"></div>
+      <button class="btn-secondary edit-btn" style="margin-top:1rem" onclick="goToStep(2)">← Edit Resume</button>
+    </div>
+    <div class="jobs-area">
+      <div id="jobs-output"></div>
+      <div class="tailor glass">
+        <div class="jobs-head"><div><h3>Tailor to a job post</h3><p>Paste a job description to see how well this resume matches, what to change, and get a cover letter.</p></div></div>
+        <div class="field"><textarea id="jd-text" placeholder="Paste the full job description here…" oninput="onJDInput()"></textarea></div>
+        <div class="ai-row"><button class="ai-btn solid" onclick="aiTailor(this)">✨ Check my match</button><button class="ai-btn" onclick="aiCoverLetter(this)">✨ Write cover letter</button></div>
+        <div id="tailor-output"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script src="part1-core-ui/script.js"></script>
+<script src="part2-templates/script.js"></script>
+<script src="part3-accounts-admin/script.js"></script>
+<script src="part4-ai-features/script.js"></script>
+</body>
+</html>
