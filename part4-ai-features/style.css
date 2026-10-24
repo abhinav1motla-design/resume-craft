@@ -1,0 +1,211 @@
+/*
+ * RésuméCraft — PART 4: AI Assistant, Jobs & Resume Upload
+ * Team member: ____________________
+ *
+ * AI provider connection (Claude / OpenAI / Gemini), AI writing help and resume review, job suggestions, job-post tailoring and cover letters, and uploading an old resume (PDF, Word, photo, OCR).
+ */
+
+/* ========== AI ASSIST ========== */
+.ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 0.38rem 0.85rem;
+  border-radius: 100px;
+  cursor: pointer;
+  border: 1px solid rgba(108,92,255,0.35);
+  background: linear-gradient(135deg, rgba(255,255,255,0.75), rgba(240,232,255,0.55));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 3px 10px rgba(108,92,255,0.12);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.ai-btn:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: inset 0 1px 0 #fff, 0 6px 16px rgba(108,92,255,0.22); }
+.ai-btn:disabled { opacity: 0.7; cursor: progress; transform: none; }
+.ai-btn.big { font-size: 0.88rem; padding: 0.7rem 1.2rem; width: 100%; justify-content: center; }
+.ai-btn.solid { background: var(--accent-grad); color: #fff; border-color: rgba(255,255,255,0.4); box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 8px 22px rgba(108,92,255,0.3); }
+.spin {
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.ai-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.75rem; }
+.entry-actions { display: flex; gap: 0.4rem; align-items: center; }
+.ai-hint { font-size: 0.74rem; color: var(--muted); }
+
+.ai-status {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.78rem; color: var(--mid);
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.35);
+  border: 1px solid rgba(255,255,255,0.75);
+  line-height: 1.35;
+}
+.ai-dot { width: 8px; height: 8px; border-radius: 50%; background: #c2c4d6; flex-shrink: 0; }
+.ai-dot.on { background: var(--green); box-shadow: 0 0 0 3px rgba(31,163,106,0.18); }
+
+.suggest-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.8rem; }
+.suggest-chip {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  padding: 0.32rem 0.75rem;
+  border-radius: 100px;
+  border: 1px dashed rgba(108,92,255,0.5);
+  background: rgba(255,255,255,0.5);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.suggest-chip:hover { background: #fff; border-style: solid; }
+
+/* Review */
+.review-box { margin-top: 0.9rem; }
+.score-ring {
+  --p: 0;
+  width: 74px; height: 74px; border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--p) * 1%), rgba(255,255,255,0.5) 0);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 6px 18px rgba(108,92,255,0.2);
+}
+.score-ring span {
+  width: 58px; height: 58px; border-radius: 50%;
+  background: rgba(255,255,255,0.92);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 1.1rem; color: var(--dark);
+}
+.review-head { display: flex; gap: 0.9rem; align-items: center; margin-bottom: 0.8rem; }
+.review-head p { font-size: 0.8rem; color: var(--mid); line-height: 1.45; }
+.review-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.8rem; }
+.review-list li { font-size: 0.8rem; line-height: 1.45; padding-left: 1.2rem; position: relative; color: var(--mid); }
+.review-list.good li::before { content: '✓'; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+.review-list.fix li::before { content: '→'; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+.mini-label { font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 0.4rem 0 0.4rem; }
+
+/* ========== STEP 4: JOBS ========== */
+.jobs-controls .field { margin-bottom: 0.9rem; }
+.jobs-controls p.lead { font-size: 0.84rem; color: var(--muted); line-height: 1.5; margin: -0.6rem 0 1.2rem; }
+.jobs-area {
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  min-height: calc(100vh - 108px);
+}
+.jobs-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+.jobs-head h3 { font-family: 'Playfair Display', serif; font-size: 1.6rem; }
+.jobs-head p { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+.jobs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+.job-card {
+  border-radius: 20px;
+  padding: 1.2rem;
+  display: flex; flex-direction: column; gap: 0.7rem;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  box-shadow: var(--glass-shadow);
+  animation: fadeUp 0.35s ease both;
+}
+.job-top { display: flex; gap: 0.8rem; align-items: flex-start; }
+.job-top .score-ring { width: 54px; height: 54px; }
+.job-top .score-ring span { width: 42px; height: 42px; font-size: 0.82rem; }
+.job-title { font-weight: 700; font-size: 1.02rem; line-height: 1.3; }
+.job-meta { font-size: 0.76rem; color: var(--muted); margin-top: 0.2rem; }
+.job-why { font-size: 0.84rem; line-height: 1.55; color: var(--mid); }
+.job-skills { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.job-skill { font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 100px; background: rgba(255,200,120,0.25); color: #8a5300; border: 1px solid rgba(255,255,255,0.7); }
+.job-links { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: auto; padding-top: 0.4rem; border-top: 1px solid rgba(255,255,255,0.7); }
+.job-links a {
+  font-size: 0.74rem; font-weight: 600; text-decoration: none;
+  padding: 0.35rem 0.75rem; border-radius: 100px;
+  background: rgba(255,255,255,0.6); color: var(--dark);
+  border: 1px solid rgba(255,255,255,0.9);
+  transition: all 0.15s;
+}
+.job-links a:hover { background: #fff; color: var(--accent); }
+.career-tip {
+  margin-top: 1.2rem;
+  padding: 1rem 1.2rem;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.4);
+  border: 1px solid rgba(255,255,255,0.8);
+  font-size: 0.86rem; line-height: 1.55; color: var(--mid);
+}
+.career-tip b { color: var(--dark); }
+.empty-state {
+  text-align: center; padding: 4rem 1rem; color: var(--muted);
+}
+.empty-state .big-ico { font-size: 2.4rem; margin-bottom: 0.6rem; }
+.empty-state h4 { font-family: 'Playfair Display', serif; font-size: 1.35rem; color: var(--dark); margin-bottom: 0.4rem; }
+.empty-state p { font-size: 0.88rem; max-width: 420px; margin: 0 auto; line-height: 1.55; }
+
+@media (max-width: 960px) {
+  .ai-grid { grid-template-columns: 1fr; }
+  .jobs-area { min-height: 0; padding: 1rem; }
+  .jobs-grid { grid-template-columns: 1fr; }
+}
+
+
+/* ========== UPLOAD ========== */
+.upload-banner {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  max-width: 760px; margin: -1rem auto 2.2rem;
+  padding: 1rem 1.1rem 1rem 1.3rem;
+  border-radius: 20px;
+}
+.upload-banner .ub-ico { font-size: 1.6rem; }
+.upload-banner .ub-text { flex: 1; min-width: 220px; }
+.upload-banner .ub-text b { display: block; font-size: 0.98rem; margin-bottom: 0.15rem; }
+.upload-banner .ub-text span { font-size: 0.84rem; color: var(--muted); }
+
+.dropzone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
+  padding: 2.6rem 1rem;
+  border-radius: 20px;
+  border: 2px dashed rgba(108,92,255,0.45);
+  background: rgba(255,255,255,0.35);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dropzone:hover, .dropzone.drag { background: rgba(255,255,255,0.65); border-color: var(--accent); }
+.dropzone .dz-ico { font-size: 2.2rem; }
+.dropzone b { font-size: 1rem; }
+.dropzone span { font-size: 0.82rem; color: var(--muted); }
+.up-busy { display: flex; flex-direction: column; align-items: center; gap: 0.9rem; padding: 3rem 1rem; color: var(--mid); font-size: 0.92rem; }
+.up-busy .spin { width: 30px; height: 30px; border-width: 3px; color: var(--accent); }
+.up-file { font-size: 0.84rem; color: var(--muted); margin-bottom: 1rem; word-break: break-all; }
+.sugg-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.sugg {
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.85);
+}
+.sugg-tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.15rem 0.5rem; border-radius: 100px; background: rgba(108,92,255,0.12); color: var(--accent); margin-bottom: 0.4rem; }
+.sugg-issue { font-size: 0.86rem; font-weight: 600; color: var(--dark); line-height: 1.45; }
+.sugg-change { font-size: 0.84rem; color: var(--mid); margin-top: 0.25rem; line-height: 1.5; }
+.sugg-example { font-size: 0.82rem; color: #4a3f99; margin-top: 0.45rem; padding: 0.5rem 0.7rem; border-radius: 10px; background: rgba(108,92,255,0.07); border-left: 3px solid rgba(108,92,255,0.5); font-style: italic; line-height: 1.5; }
+.found { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.84rem; color: var(--mid); }
+
+.letter { white-space: pre-wrap; font-size: 0.86rem; line-height: 1.6; color: var(--dark); background: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.9); border-radius: 14px; padding: 0.9rem 1rem; }
+.job-skill.have { background: rgba(31,163,106,0.14); color: #137a4d; }
+.tailor { margin-top: 1.5rem; padding: 1.4rem; border-radius: 22px; }
+.tailor textarea { min-height: 140px; }
+.tailor-res { margin-top: 1rem; }
+
+/* ---------- Mobile layout (Part 4) ---------- */
+@media (max-width: 960px) {
+  .upload-banner { margin-top: 0; }
+  .tailor { padding: 1rem; }
+}
